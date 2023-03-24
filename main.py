@@ -32,7 +32,7 @@ print("Checking if there's null values in the ratings dataset ")
 col_ratings_null_df = ratings_df \
     .select([count(when(col(c).isNull(), c)).alias(c) for c in ratings_df.columns])
 col_ratings_null_df.show()
-#
+
 movies_df.show(20, truncate=False)
 ratings_df.show(20, truncate=False)
 # Check how many different User_ID and Movie_ID are there
@@ -44,8 +44,30 @@ count_MovieID = movies_df.select(countDistinct("MovieID"))
 count_MovieID.show()
 print("Movie Genres")
 diff_genre_count = movies_df.withColumn("Genres", explode(split("Genres", "[|]")))
-diff_genre_count.show(20, truncate=False)
 diff_genre_count.select(countDistinct("Genres")).show()
+
+# List the number of movie genres and their avg rating
+genre_count = movies_df \
+    .withColumn("Genres", explode(split("Genres", "[|]")))\
+    .groupBy("Genres")\
+    .agg(count(col("Genres")).alias("Count_Of_Movies"))\
+    .orderBy(desc("Count_Of_Movies"))
+genre_count.show()
+
+genre_avg_ratings = ratings_df \
+    .join(movies_df, ratings_df.MovieID == movies_df.MovieID) \
+    .withColumn("Genres", explode(split("Genres", r"\|"))) \
+    .groupBy(col("Genres")) \
+    .agg(avg("Rating").alias("Avg_Rating")) \
+    .withColumn("Avg_Rating", round(col("Avg_Rating"), 2))\
+    .orderBy(desc("Avg_Rating"))
+genre_avg_ratings.show()
+
+genre_chart = genre_count \
+    .join(genre_avg_ratings, ["Genres"])\
+    .withColumnRenamed("Count_Of_Movies", "Movie_Count")\
+    .sort(desc("Avg_Rating"))
+genre_chart.show()
 
 # # This find a specific row of the dataset
 # print(movies_df.collect()[0])
@@ -60,23 +82,20 @@ diff_genre_count.select(countDistinct("Genres")).show()
 #     'Genres']).collect()[5]
 # )
 
-# List the number of movies according to their genre
-genre_count = movies_df.groupBy('Genres').count()
-genre_count.sort(desc("count")).show(40, truncate=False)
-
+#
 # List the movies that doesn't have a genre listed
 movies_df.filter(movies_df.Genres == "(no genres listed)").show(20, truncate=False)
 # Count how many movies that are listed as no genre
 movie_count = movies_df.filter(movies_df.Genres == "(no genres listed)").count()
 print("The Count for No Genre Listed is ", movie_count)
-# #
-# # Join two dataframes movies_df and ratings_df
-# # truncate displays the full content of the columns without truncation(resize the file to a specified sized
-# movie_ratings_df = movies_df \
-#     .join(ratings_df, movies_df.MovieID == ratings_df.MovieID) \
-#     .drop(ratings_df.MovieID)
-# movie_ratings_df.show(20, truncate=False)
-
+# # #
+# # # Join two dataframes movies_df and ratings_df
+# # # truncate displays the full content of the columns without truncation(resize the file to a specified sized
+# # movie_ratings_df = movies_df \
+# #     .join(ratings_df, movies_df.MovieID == ratings_df.MovieID) \
+# #     .drop(ratings_df.MovieID)
+# # movie_ratings_df.show(20, truncate=False)
+#
 # Most Popular Movie
 print("Most Popular Movies")
 most_popular_df = ratings_df \
